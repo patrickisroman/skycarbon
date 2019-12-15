@@ -1,23 +1,257 @@
+
 <html>
     <head>
+        <script src="https://kit.fontawesome.com/3ecdedcec3.js" crossorigin="anonymous"></script>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+        <link href="https://fonts.googleapis.com/css?family=Cousine&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css?family=Roboto+Mono&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css?family=Darker+Grotesque&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans|Roboto:700&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans+Condensed:400&display=swap" rel="stylesheet">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.1.3/TweenMax.min.js"></script>
         <link rel="stylesheet" type="text/css" href="./style.css"/>
+        <title>Global Airplane CO2 Emissions</title>
     </head>
     <body>
-        <div class="cpanel">
-            <div class="skyCarbonTitle">skyCarbon</div>
-            <input type="checkbox" id="displayVersion"> Airplane </input>
-            <div class="tonnageRow">
-                <label><b>Live CO2 Emissions: </b></label>
-                <label id="carbonTonnage">0 kg</label>
+        <div class="trackerDiv" id="sky">
+            <div class="counterContainer">
+                <div class="counter">
+                    
+                    <div class="liveLabel">
+                        <label class="full-width-label">
+                            <div class="gps_ring"></div>
+                            <b>Live Commercial Aircraft CO2 Emissions:</b>
+                        </label>
+                        <br/>
+                    </div>
+                    <b><label class="full-width-label tonnageLabel" id="carbonkG">0 kg</label></b>
+                    <div class="planes">
+                        <span id="livePlanes" title="Live Airborne Aircraft - Updated 00:00:00">0</span><i class="fas fa-plane"></i>
+                    </div>
+                    <div class="calculation-info" style="display:none;">
+                        How This is Calculated
+                    </div>
+                </div>
+            </div>
+
+            <div class="aboutContainer" id="aboutButton">
+                <div class="aboutWrapper">
+                    <i class="fa fa-question aboutIcon"></i>
+                </div>
+            </div>
+
+            <div class="moreInfo">
+                <div class="moreInfoLabel" id="moreInfo">
+                    <div class="pulsate-down">
+                        <i class="arrow down"></i>
+                    </div>
+                    <div style="float:left">More Info</div>
+                    <div class="pulsate-down">
+                        <i class="arrow down"></i>
+                    </div>
+                </div>
             </div>
         </div>
-        <canvas id="skyCarbonCanvas"></canvas>
-        <div class="help-div"></div>
-        <div class="pageBackground" id="pageBackground">
-            
+
+        <div class="trackerDiv infoPage" id="info">
+            <div class="lessInfo">
+                <div class="moreInfoLabel" id="lessInfo">
+                    <div class="pulsate-down">
+                        <i class="arrow up"></i>
+                    </div>
+                    <div style="float:left" id="lessInfoObj">Less Info</div>
+                    <div class="pulsate-down">
+                        <i class="arrow up"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fullscreenTracking">
+                <div class="fullscreenTrackingTable">
+                    <table class="fullTable" style="text-align:center;width:100%;">
+                        <tr>
+                            <td>
+                                <div class="element-title">
+                                    <div class="element-inner">
+                                        <b>Live Carbon Emissions</b>
+                                    </div>
+                                    <div class="element-inner right-el" id="totalCarbon">
+                                        0
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="element-title">
+                                    <div class="element-inner">
+                                        <b>Kg CO2 / Day</b>
+                                    </div>
+                                    <div class="element-inner right-el" id="co2PerDay">
+                                        0
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="element-title">
+                                    <div class="element-inner">
+                                        <b>Current Airborne Flights</b>
+                                    </div>
+                                    <div class="element-inner right-el" id="airborneFlights">
+                                        0
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="element-title">
+                                    <div class="element-inner">
+                                        <b>Kg CO2 / Hour</b>
+                                    </div>
+                                    <div class="element-inner right-el" id="co2PerHour">
+                                        0
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="element-title">
+                                    <div class="element-inner">
+                                        <b>Trees to Negative Live Emissions</b>
+                                    </div>
+                                    <div class="element-inner right-el" id="treesToOffset">
+                                        0
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="element-title">
+                                    <div class="element-inner">
+                                        <b>Kg CO2 / Minute</b>
+                                    </div>
+                                    <div class="element-inner right-el" id="co2PerMinute">
+                                        0
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="element-title">
+                                    <div class="element-inner">
+                                        <b>Hot Air Balloons Filled With CO2</b>
+                                    </div>
+                                    <div class="element-inner right-el" id="balloonsToOffset">
+                                        0
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="element-title">
+                                    <div class="element-inner">
+                                        <b>Kg CO2 / Second</b>
+                                    </div>
+                                    <div class="element-inner right-el" id="co2PerSecond">
+                                        0
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal -->
+        <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel">
+                            WHAT CAN I DO?
+                        </h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="container">
+                            <div class="row">
+                                <div class="col-sm separated">
+                                    <div class="col-header">
+                                        Support Low-Carbon Airlines
+                                    </div>
+                                    <div class="col-icon">
+                                        <div class="col-icon-inner">
+                                            <i class="fa fa-plane airlines-icon" aria-hidden="true"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col-body">
+                                        The best way to reduce air-travel related carbon emissions is to not travel
+                                        by plane in the first place. When air travel is necessary, you can evaluate
+                                        ticket options based on carbon-impact and choose low carbon airlines.
+                                    </div>
+                                    <div class="sacred-links">
+                                        <a href="https://www.atmosfair.de/wp-content/uploads/aai2018-englischfarbe_final_mn.pdf#page=6" target="blank">View Airline Carbon Efficiency Ratings</a>
+                                        <a href="https://www.responsiblevacation.com/destinations/">Research Sustainable Travel Options</a>
+                                    </div>
+                                </div>
+                                <div class="col-sm separated">
+                                    <div class="col-header">
+                                        Offset Your Carbon Emissions
+                                    </div>
+                                    <div class="col-icon">
+                                        <div class="col-icon-inner">
+                                                <i class="fab fa-pagelines"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col-body">
+                                        Sometimes air travel is necessary. To reduce the impact of your travel on the planet, consider
+                                        donating to carbon-reducing causes. Some organizations also allow you to directly offset the carbon footprint
+                                        of a flight for less than $5.00.
+                                    </div>
+                                    <div class="sacred-links">
+                                        <a href="https://www.carbonfootprint.com/measure.html" target="blank">Calculate Your Carbon Footprint</a>
+                                        <a href="https://www.onetreeplanted.org/products" target="blank">Plant Some Trees</a>
+                                        <a href="https://science.howstuffworks.com/environmental/green-science/carbon-offset.htm" target="blank">Research Carbon-Offsetting Services</a>
+                                    </div>
+                                </div>
+                                <div class="col-sm">
+                                    <div class="col-header">
+                                        Take Action
+                                    </div>
+                                    <div class="col-icon">
+                                        <div class="col-icon-inner">
+                                            <i class="fas fa-fist-raised"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col-body">
+                                        Major Airlines and Corporations must take severe steps to hit climate targets, but are often slow
+                                        to raise consumer sentiment. <b>Use your voice</b> to hold airlines responsible and demand their commitment
+                                        to a long-term solution.
+                                    </div>
+                                    <div class="sacred-links">
+                                        <a href="mailto:?subject=Carbon%20Levels&amp;body=Hello%20goodbye">Airline Email Template</a>
+                                        <a href="https://www.thepetitionsite.com/612/635/544/?TAP=1732" target="blank">Sign a Petition</a>
+                                        <a href=""></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="app-info mr-auto">
+                            <b>Donate</b> to keep tools like this free
+                        </div>
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal" id="closer">Close</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <script type="text/javascript" src="./js/jquery-3.4.1.min.js"></script>
-        <script type="text/javascript" src="./js/skycarbon.js"></script>
+        <script type="text/javascript" src="./js/skycarbon.js" defer></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.2/umd/popper.min.js"></script>
+        <script type="text/javascript" src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.js"></script>
     </body>
 </html>
