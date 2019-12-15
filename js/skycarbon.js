@@ -1,38 +1,44 @@
 var current_data_url = 'https://cors-anywhere.herokuapp.com/http://flightaware.com/live/aircrafttype/';
 var emission_map_url = 'emission_map.json';
-var carbon_emission_map = {};
 var element = document.getElementById("lessInfoObj");
 
-var test_data = {'a' : 5102, 'b' : 516};
-var test_map = JSON.parse(
-    '{\
-        "Boeing 737-800" : {\
-            "kg_per_sec" : 3.31912499984\
-        },\
-        "Airbus A320" : {\
-            "kg_per_sec" : 3.31912499984\
-        },\
-        "Airbus A321" : {\
-            "kg_per_sec" : 3.31912499984\
-        },\
-        "default" : {\
-            "kg_per_sec" : 3.31912499984\
-        }\
-    }'
-);
-
+/* Global vars */
 var skyDiv = document.getElementById("sky");
+var w = window.innerWidth;
+var h = window.innerHeight;
+var num_clouds = 10;
+var max_distance = 200;
+
+var emission_map = {};
+var total_emissions_kg = 0;
+var last_loaded_timestamp = 0;
+
+/* Statistics update interval & jitter */
+var jitter_enabled = true;
+var data_refresh_rate_ms = 70;
+var data_refresh_jitter_ms = 10;
+
+/* Calculation constants */
+var carbon_liters_per_kg = 511;
+var hot_air_balloon_avg_liters = 2500000
+var start_time = window.performance.now() / 1000;
+var carbon_kg_absorption_per_year = 18;
+var trees_to_offset_kg = (365 / carbon_kg_absorption_per_year);
+var flight_data_refresh_rate = 30000;
+
+/* List of JSON objs */
+var global_aircraft_tracker = new Array();
+var total_flights = 0;
 
 function R(min,max) {
     return min+Math.random()*(max-min)
 };
-var w = window.innerWidth;
-var h = window.innerHeight;
 
-for (i=0; i<50; i++) {
+/* Draw clouds */
+for (i = 0; i < num_clouds; i++) {
     var div = document.createElement('div');
     var cloud_data = generate_cloud_data();
-    $(div).css('z-index', Math.round(205 - cloud_data[0]));
+    $(div).css('z-index', Math.round(max_distance - cloud_data[0]));
     div.setAttribute('speed', cloud_data[5]);
 
     TweenMax.set(div, {
@@ -43,24 +49,22 @@ for (i=0; i<50; i++) {
         opacity:cloud_data[4],
         rotationY: R(0, 10) > 5 ? 180 : 0
     });
+
     skyDiv.appendChild(div);
-    animm(div);
+    cloud_animation(div);
 }
 
-var div = document.createElement('div');
-TweenMax.set(div, {
-    attr: {class:'airplane'},
-    y: 0,
-    rotation:1,
-    scale: 2.3,
-    transformOrigin: '50% 50%'
-});
-plane_anim(div);
-skyDiv.appendChild(div);
+function cloud_animation(el) {
+    TweenMax.to(el, el.getAttribute('speed'),{
+        x:-300,
+        rotation:1,
+        repeat: -1,
+        yoyo:false,
+        ease:Linear.easeNone
+    });
+}
 
 function generate_cloud_data() {
-    var max_distance = 200;
-
     var distance = R(0, max_distance);
     var y = h - (250 + (2 * distance));
     var scale = 2 - (1.5*(distance / max_distance));
@@ -70,64 +74,45 @@ function generate_cloud_data() {
     return [distance, y, scale, animation_dur, opacity, speed];
 }
 
-function plane_anim(el) {
-    TweenMax.to(el, 4, {
-        rotation:-1,
-        y:'-=60',
-        repeat: -1,
-        yoyo: true,
-        ease:Sine.easeInOut,
-        transformOrigin: '50% 50%'
-    });
-}
+/* Drawing the airplane */
+var plane = document.createElement('div');
+TweenMax.set(plane, {
+    attr: {class:'airplane'},
+    y: 0,
+    rotation:1,
+    scale: 2.3,
+    transformOrigin: '50% 50%'
+});
 
-function animm(el) {
-    TweenMax.to(el, el.getAttribute('speed'),{
-        x:-300,
-        rotation:1,
-        repeat: -1,
-        yoyo:false,
-        ease:Linear.easeNone,
-        onComplete: function() {
-            console.log(el.getAttribute('speed'));
-            this.repeat();
-        }
-    });
-}
+TweenMax.to(plane, 4, {
+    rotation:-1,
+    y:'-=60',
+    repeat: -1,
+    yoyo: true,
+    ease:Sine.easeInOut,
+    transformOrigin: '50% 50%'
+});
 
-var stepped_emissions_tonnes = 0;
-var total_emissions_kg = 0;
-var last_loaded_timestamp = 0;
-var last_balloon_update_timestamp = 0;
+skyDiv.appendChild(plane);
 
-var jitter_enabled = true;
-var data_refresh_rate_sec = .05; // 100 ms
-var data_refresh_jitter_sec = .05; // +/i 50 ms
+/* Load emissions map*/
+$.ajax({
+    url: emission_map_url,
+    type: 'get',
+    dataType: 'json',
+    success:function(response) {
+        emission_map = response;
+    }
+});
 
-// how should we draw stoof?
-var tonnes_per_puff = 1;
-var tonnes_per_balloon = 50;
-
-var balloon_array = new Array();
-var display_mode = 'balloon';
-
-var start_time = window.performance.now() / 1000;
-var carbon_kg_absorption_per_year = 18;
-var trees_to_offset_kg = (365 / carbon_kg_absorption_per_year);
-
-// list of our global aircraft
-var global_aircraft_tracker = new Array();
-var total_flights = 0
-
+/* Update flight data every 30s */
 function load_current_flight_data() {
     $.ajax({
         url: current_data_url,
         type: "get",
         dataType:'text',
         success: function(response) {
-            console.log('Relisted');
-            var html = $.parseHTML(response);
-            var result = $(html).find(".prettyTable");
+            var result = $($.parseHTML(response)).find(".prettyTable");
             var response_arr = new Array();
             var flights = 0;
             $(result).find("tr").each(function(e, el) {
@@ -141,87 +126,43 @@ function load_current_flight_data() {
                 }
             });
             
-            total_flights = flights;
             global_aircraft_tracker = response_arr.slice();
-            $("#airborneFlights").html(`${total_flights.toLocaleString()} <b><br/>airborne flights</b>`);
-            $("#livePlanes").text(`${total_flights.toLocaleString()}`);
+            total_flights = flights;
+            $("#airborneFlights").html(`${flights.toLocaleString()} <b><br/>airborne flights</b>`);
+            $("#livePlanes").text(`${flights.toLocaleString()}`);
+            
             var update_time = new Date().toLocaleString();
             $("#livePlanes").attr('title', `Live Airborne Aircrafts 
-            Updated: ${update_time}`).tooltip('_fixTitle');
+                                            Updated: ${update_time}`).tooltip('_fixTitle');
         }
     });
 }
 
-class cloud {
-    constructor(x, y, size) {
-        this.x = x;
-        this.y = y;
-        this.size = size;
-    }
-}
+/* Refresh live flight data */
+load_current_flight_data();
+setInterval(load_current_flight_data, flight_data_refresh_rate);
 
+/* About modal behavior */
 $("#aboutButton").on('click', function() {
     $("#exampleModal").modal();
 });
 
+/* More/Less Info Hooks */
 $("#moreInfo").on('click', function(e) {
-EPPZScrollTo.scrollTo(window.outerHeight);
+    EPPZScrollTo.scrollTo(window.outerHeight);
 });
 
 $("#lessInfo").on('click', function(e) {
     EPPZScrollTo.scrollTo(0);
 });
 
-
-load_current_flight_data();
-setInterval(load_current_flight_data, 30000);
-
-function random_in_range(min, max, round=true) {
-    var result = min + (Math.random() * (max - min));
-    return round ? Math.round(result) : result;
-}
-
-function push_new_balloon() {
-    var balloon_y_min = .9 * window.outerHeight ;
-    var balloon_speed = random_in_range(100, 250);
-
-    balloon_pos = [
-        Math.round(random_in_range(0, window.outerWidth)),
-        Math.round(random_in_range(balloon_y_min, (1.2 * window.outerHeight)))
-    ];
-
-    var balloon_div = document.createElement('div');
-    balloon_div.setAttribute('class', 'balloon');
-    balloon_div.style.left = balloon_pos[0];
-    balloon_div.style.top = balloon_pos[1];
-    balloon_div.setAttribute('speed', `${balloon_speed}`);
-
-    document.getElementById('pageBackground').appendChild(balloon_div);
-    balloon_array.push(balloon_div);
-}
-
-function iterate_all_balloons() {
-    var current_timestamp = window.performance.now() / 1000;
-
-    if (!last_balloon_update_timestamp) {
-        last_balloon_update_timestamp = current_timestamp;
-        return;
-    }
-
-    var time_elapsed_sec = current_timestamp - last_balloon_update_timestamp;
-
-    balloon_array.forEach(balloon => {
-        var speed = balloon.getAttribute('speed');
-        var current_top = balloon.style.top.replace('px', '');
-        balloon.style.top = current_top - (speed * time_elapsed_sec);
-    });
-
-    last_balloon_update_timestamp = current_timestamp;
-}
-
+/* Functions for updating stats */
 function push_carbon_calculation(emissions_kg, time) {
     total_emissions_kg += emissions_kg;
+    
     var rounded_kg = Math.round(total_emissions_kg);
+    $("#carbonkG").text(`${rounded_kg.toLocaleString()} kg`);
+    $("#totalCarbon").html(`${rounded_kg.toLocaleString()} <b><br/>kg</b>`);
 
     var carbon_per_day = Math.round((86400 / (time - start_time)) * rounded_kg);
     $("#co2PerDay").html(`${carbon_per_day.toLocaleString()} <b><br/>kg</b>`);
@@ -238,72 +179,48 @@ function push_carbon_calculation(emissions_kg, time) {
     var trees_to_offset = Math.round(total_emissions_kg * trees_to_offset_kg);
     $("#treesToOffset").html(`${trees_to_offset.toLocaleString()} <b><br/>trees</b>`);
 
-    var volume_output = 511 * total_emissions_kg;
-    var balloons_to_offset = Math.round(volume_output / 2500000);
+    var volume_output = carbon_liters_per_kg * total_emissions_kg;
+    var balloons_to_offset = Math.round(volume_output / hot_air_balloon_avg_liters);
     $("#balloonsToOffset").html(`${balloons_to_offset.toLocaleString()} <b><br/>balloons</b>`)
-
-    var x = rounded_kg.toLocaleString();
-    $("#carbonkG").text(`${x} kg`);
-
-    $("#totalCarbon").html(`${x} <b><br/>kg</b>`);
-}
-
-$("#displayVersion").change(function() {
-    display_mode = this.checked ? 'airplane' : 'balloon';
-    toggle_mode(this.checked);
-});
-
-function toggle_mode(is_airplane) {
-    if (is_airplane) {
-        console.log('not supported');
-        while (balloon_array.length > 0) {
-            balloon_array.pop();
-        }
-        var background = document.getElementById('pageBackground');
-        while (background.hasChildNodes) {
-            background.removeChild(background.firstChild);
-        }
-    } else {
-
-    }
 }
 
 function calculate_carbon_emissions(aircraft_data, reference_map, time_elapsed_sec) {
-    var total_carbon = 0;
+    if (!aircraft_data || aircraft_data.length == 0) return 0;
+    var default_rate = reference_map['default']['kg_per_sec'];
 
-    var num = 0;
-    for (let i = 0; i < aircraft_data.length; i++) {
-        var aircraft_type = aircraft_data[i]['aircraft'].trim();
-        var aircraft_num = aircraft_data[i]['num'];
-
-        num += aircraft_num;
-        carbon_rate = reference_map[aircraft_type] ? reference_map[aircraft_type]['kg_per_sec'] : reference_map['default']['kg_per_sec'];
-        total_carbon += (aircraft_num * carbon_rate * time_elapsed_sec);
-    }
-
-    return Math.round(total_carbon);
+    return aircraft_data.reduce(function(sum, entry) {
+        var reference_data = reference_map[entry['aircraft'].trim()];
+        var rate = reference_data ? reference_data['kg_per_sec'] : default_rate;
+        var entry_num = entry['num'];
+        return sum + (rate * entry_num * time_elapsed_sec);
+    }, 0);
 }
 
-function step_total_carbon_emissions() {
+var step_carbon_emissions = function() {
     var current_timestamp = window.performance.now() / 1000;
 
     if (!last_loaded_timestamp) {
         last_loaded_timestamp = current_timestamp;
+        setTimeout(step_carbon_emissions, data_refresh_rate_ms);
         return;
     }
 
     var time_elapsed_sec = current_timestamp - last_loaded_timestamp;
-    var local_carbon_calculation = calculate_carbon_emissions(global_aircraft_tracker, test_map, time_elapsed_sec);
     last_loaded_timestamp = current_timestamp;
 
+    var local_carbon_calculation = calculate_carbon_emissions(global_aircraft_tracker, emission_map, time_elapsed_sec);
     push_carbon_calculation(local_carbon_calculation, current_timestamp);
 
-    var refresh_interval = jitter_enabled 
-        ? data_refresh_rate_sec + ((Math.random() * data_refresh_jitter_sec * 2) - data_refresh_jitter_sec)
-        : data_refresh_rate_sec;
+    var refresh_interval = data_refresh_rate_ms;
+    if (jitter_enabled) {
+        refresh_interval += (Math.random() * data_refresh_jitter_ms);
+    }
+    
+    setTimeout(step_carbon_emissions, refresh_interval);
+    
 }
-
-setInterval(step_total_carbon_emissions, 75);
+step_carbon_emissions();
+setTimeout(step_carbon_emissions, data_refresh_rate_ms);
 
 
 /**
@@ -316,7 +233,6 @@ setInterval(step_total_carbon_emissions, 75);
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
-
 
 var EPPZScrollTo =
 {
